@@ -24,11 +24,6 @@ main() ->
     io:format("~s~n", ["Map:"]),
     my_print(Map),
     listen().
-    %listen(),
-    %listen(),
-    %listen(),
-    %listen(),
-    %listen().
 
 readlines(FileName) ->
     {ok, Device} = file:open(FileName, [read]),
@@ -61,6 +56,15 @@ get_node([]) -> [];
 get_node([H|_]) ->
     H. 
 
+% Not finished
+convert_list_to_pid([], Dict) -> [];
+convert_list_to_pid([H|T], Dict) -> ok. 
+
+convert_to_pid([], Dict) -> [];
+convert_to_pid([H|T], Dict) -> dict:fetch(H,Dict).
+
+
+
 create_processes([]) -> [];
 create_processes([H|T]) ->
     Pid = create_process(H),
@@ -88,10 +92,12 @@ listen() ->
     receive
         [Key|Nodes] ->
             io:format("Received Key: ~c~n", Key),
-            my_print(Nodes);
-
+            my_print(Nodes),
+            listen();
         _ ->
             io:format("Got a bad message~n")
+    after 2000
+        -> ok
     end.
 
 
