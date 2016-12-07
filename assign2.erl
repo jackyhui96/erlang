@@ -2,15 +2,18 @@
 -compile(export_all).
 
 main() ->
-    File = "input.txt",
-    List = readlines(File),
-    % io:format("~s~n", ["List:"]),
-    % my_print(List),
-    % List,
+    %File = "input.txt",
+    List = get_all_lines([]),
+    %io:format("~s~n", ["List:"]),
+    %my_print(List),
+    %List,
+
+    % Get the initiator node
     Init = get_init(List),
     io:format("~s~n", ["Initiator:"]),
     io:format("~p~n", Init),
 
+    % Get the graph
     Graph = get_graph(List),
     io:format("~s~n", ["Graph:"]),
     my_print(Graph),
@@ -19,52 +22,60 @@ main() ->
     %io:format("~s~n", ["Nodes:"]),
     %my_print(List_of_nodes),
 
+    % Create processes and make a dictionary to associate nodes with Pid
     Map = create_processes(Graph),
     Dictionary = dict:from_list(Map),
     io:format("~s~n", ["Map:"]),
     my_print(Map),
+
+    % Convert graph of nodes into a graph of Pids 
+    Graph2 = convert_list_to_pid(Graph, Dictionary),
+    io:format("~s~n", ["Graph2:"]),
+    my_print(Graph2),
+
+    % Listen back for responses to check if nodes are created
     listen().
 
-readlines(FileName) ->
-    {ok, Device} = file:open(FileName, [read]),
-    get_all_lines(Device, []).
-
-get_all_lines(Device, Accum) ->
-    case io:get_line(Device, "") of
-        eof  -> file:close(Device), Accum;
-        Line -> get_all_lines(Device, Accum ++ [split_line(Line)])
+% Reads input from stdin
+get_all_lines(Accum) ->
+    case io:get_line("") of
+        eof  -> Accum;
+        Line -> get_all_lines(Accum ++ [split_line(Line)])
     end.
 
+% Splits the input by spaces and newlines - Helper function
 split_line(Line) -> (string:tokens(Line, " $\n")).
 
+% My function to print out lists
 my_print([]) -> ok;
-my_print([H|T]) ->  
+my_print([H|T]) ->      
     io:format("~p~n", [H]),
     my_print(T).
 
+% Get the initiator from a list (Head of list)
 get_init([]) -> ok;
 get_init([H|_]) -> H.
 
+% Get the graph from a list (Tail of list)
 get_graph([]) -> ok;
 get_graph([_|T]) -> T.
 
+% Get a list of nodes
 get_nodes([]) -> [];
-get_nodes([H|T]) ->
-    [get_node(H)] ++ get_nodes(T).
-
+get_nodes([H|T]) -> [get_node(H)] ++ get_nodes(T).
+% Get a single node
 get_node([]) -> [];
-get_node([H|_]) ->
-    H. 
+get_node([H|_]) -> H. 
 
-% Not finished
-convert_list_to_pid([], Dict) -> [];
-convert_list_to_pid([H|T], Dict) -> ok. 
+% Function to convert a list of nodes to a list of Pids
+convert_list_to_pid([], _) -> [];
+convert_list_to_pid([H|T], Dict) -> [[convert_to_pid(X, Dict) || X <- H]] ++ convert_list_to_pid(T, Dict).     
 
-convert_to_pid([], Dict) -> [];
-convert_to_pid([H|T], Dict) -> dict:fetch(H,Dict).
+% Function to convert a key to its Pid
+convert_to_pid([], _) -> [];
+convert_to_pid(Key, Dict) -> dict:fetch(Key,Dict).
 
-
-
+% Create processes from a list and create a list of tuples to associate nodes with pids 
 create_processes([]) -> [];
 create_processes([H|T]) ->
     Pid = create_process(H),
@@ -73,12 +84,14 @@ create_processes([H|T]) ->
         [X|_] -> [{X,Pid}] ++ create_processes(T)
     end.
 
+% Create a process and return it's Pid
 create_process([]) -> ok;
 create_process(Nodes) ->
     Pid = spawn(assign2, foo, [Nodes]),
     Pid ! {self()},
     Pid.
 
+% Function passed to each child process (Need to change name)
 foo([H|T]) ->
     receive
         {X} ->
@@ -88,6 +101,7 @@ foo([H|T]) ->
             io:format("Node ~p got a bad message from ~p~n", [self(), X])
     end.
 
+% Listen function for main process
 listen() ->
     receive
         [Key|Nodes] ->
