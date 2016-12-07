@@ -1,6 +1,4 @@
 % Things to do
-%   - Main process send a list of Pids to the child processes so it can communicate with neighbours
-%   - Setup variables so child process can keep track of, parent node, and list of visited nodes
 %   - Setup the token to be passed in the algorithm
 %   - Function to send and recieve tokens between nodes
 %   - Function to check: A process never forwards the token through the same channel twice
@@ -43,7 +41,7 @@ main() ->
     my_print(Graph2),
 
     % Listen back for responses to check if nodes are created
-    listen().
+    listen(Graph2).
 
 % Reads input from stdin
 get_all_lines(Accum) ->
@@ -95,32 +93,62 @@ create_processes([H|T]) ->
 
 % Create a process and return it's Pid
 create_process([]) -> ok;
-create_process(Nodes) ->
-    Pid = spawn(assign2, foo, [Nodes]),
-    Pid ! {self()},
+create_process([H|_]) ->
+    Pid = spawn(assign2, foo, []),
+    Pid ! {self(), H},
     Pid.
 
 % Function passed to each child process (Need to change name)
-foo([H|T]) ->
+foo() ->
     receive
-        {X} ->
-            io:format("Node ~p got ~p from ~p~n", [self(), H, X]),
-            X ! [H, T];
-        X ->
-            io:format("Node ~p got a bad message from ~p~n", [self(), X])
+        {MPid, Node} ->
+            %io:format("Node ~p got ~p from ~p~n", [self(), H, X]),
+            %io:format("~p", [MPid]),
+            MPid ! {self()},
+            foo2(Node);
+
+        _ ->
+            %io:format("Node ~p got a bad message from ~p~n", [self(), X])
+            io:format("foo error")
     end.
 
-% Listen function for main process
-listen() ->
+% Function to set up variables in child process
+foo2(Node) ->
     receive
-        [Key|Nodes] ->
-            io:format("Received Key: ~c~n", Key),
-            my_print(Nodes),
-            listen();
+        {N} ->
+            Name = [Node],
+            Neighbours = N,
+            Visited = [],
+            Parent = [];
         _ ->
-            io:format("Got a bad message~n")
+            ok
+    after 2000
+        -> io:format("foo2 error")
+    end.
+
+% Listen function for main process - send a list of Pids to child process of which they can communicate with
+listen(Graph) ->
+    receive
+        {Pid} ->
+            %io:format("Received Key: ~c~n", Key),
+            %my_print(Nodes),
+            Neighbours = find_neighbours(Graph, Pid),
+            Pid ! {Neighbours},
+            listen(Graph);
+        [X] ->
+            io:format("Got a bad message ~p~n", X),
+            io:format("listen error")
+            %ok
     after 2000
         -> ok
     end.
 
+% Find neighbours of the given Pid if it matches head of list
+find_neighbours([], _) -> [];
+find_neighbours([H|T], Pid) ->
+    case hd(H) == Pid of
+        true -> tl(H);
+        false -> find_neighbours(T, Pid)
+    end.
+ 
 
