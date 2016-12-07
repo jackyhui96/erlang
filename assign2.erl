@@ -1,3 +1,12 @@
+% Things to do
+%   - Main process send a list of Pids to the child processes so it can communicate with neighbours
+%   - Setup variables so child process can keep track of, parent node, and list of visited nodes
+%   - Setup the token to be passed in the algorithm
+%   - Function to send and recieve tokens between nodes
+%   - Function to check: A process never forwards the token through the same channel twice
+%   - Function to check: A process only forwards the token to its parent when there is no other option
+%   - Function for the Tarry's algorithm
+
 -module(assign2).
 -compile(export_all).
 
