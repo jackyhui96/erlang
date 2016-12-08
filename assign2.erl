@@ -1,25 +1,44 @@
 -module(assign2).
 -compile(export_all).
 
+% Tarry's algorithm
+% Reads from stdin a file which contains the initiator and a list nodes which represent the fully connected graph
+% Initiator passes a token which passed around the graph and is returned back to main where it is outputted 
 main() ->
+    % Get list from input
     List = get_all_lines([]),
 
-    % Get the initiator node
-    Init = get_init(List),
+    % Validate list - cannot be empty
+    case List of
+        [H|T] ->
+            % Get the initiator node 
+            Init = H,
+            % Get the graph
+            Graph = T,
 
-    % Get the graph
-    Graph = get_graph(List),
+            % Create processes and make a dictionary to associate nodes with Pids
+            Map = create_processes(Graph),
+            D = dict:from_list(Map),
 
-    % Create processes and make a dictionary to associate nodes with Pid
-    Map = create_processes(Graph),
-    Dictionary = dict:from_list(Map),
+            % Convert graph of nodes into a graph of Pids 
+            Pid_graph = convert_list_to_pid(Graph, D),
 
-    % Convert graph of nodes into a graph of Pids 
-    Graph2 = convert_list_to_pid(Graph, Dictionary),
-
-    % Listen back for responses to check if nodes are created
-    listen(Graph2, dict:fetch(hd(Init), Dictionary)).
-
+            % Check for any errors in conversion
+            case lists:member(error, Pid_graph) of
+                true -> io:format("error in graph~n");
+                false ->
+                    Value = dict:find(hd(Init), D),
+                    % Check to see if initiator returns a value from dictionary
+                    case Value of
+                        % Listen back for responses to check if nodes are created
+                        {ok, Init_pid} -> listen(Pid_graph, Init_pid);
+                        error -> io:format("error, can't find in dictionary~n")
+                    end
+            end;
+        _ ->
+            io:format("error in list~n")
+    end.
+            
 % Reads input from stdin
 get_all_lines(Accum) ->
     case io:get_line("") of
@@ -37,130 +56,31 @@ my_print([H|T]) ->
     io:format("~p,", [H]),
     my_print(T).
 
-% Get the initiator from a list (Head of list)
-get_init([]) -> ok;
-get_init([H|_]) -> H.
-
-% Get the graph from a list (Tail of list)
-get_graph([]) -> ok;
-get_graph([_|T]) -> T.
-
-% Get a list of nodes
-get_nodes([]) -> [];
-get_nodes([H|T]) -> [get_node(H)] ++ get_nodes(T).
-% Get a single node
-get_node([]) -> [];
-get_node([H|_]) -> H. 
-
 % Function to convert a list of nodes to a list of Pids
 convert_list_to_pid([], _) -> [];
-convert_list_to_pid([H|T], Dict) -> [[convert_to_pid(X, Dict) || X <- H]] ++ convert_list_to_pid(T, Dict).     
-
-% Function to convert a key to its Pid
+convert_list_to_pid([H|T], Dict) -> [[convert_to_pid(X, Dict) || X <- H]] 
+                                    ++ convert_list_to_pid(T, Dict).     
+% Function to convert a key to its Pid - Helper function
 convert_to_pid([], _) -> [];
-convert_to_pid(Key, Dict) -> dict:fetch(Key,Dict).
-
-% Create processes from a list and create a list of tuples to associate nodes with pids 
-create_processes([]) -> [];
-create_processes([H|T]) ->
-    Pid = create_process(H),
-    case H of
-        [] -> [];
-        [X|_] -> [{X,Pid}] ++ create_processes(T)
-    end.
-
-% Create a process and return it's Pid
-create_process([]) -> ok;
-create_process([H|_]) ->
-    Pid = spawn(assign2, foo, []),
-    Pid ! {self(), H},
-    Pid.
-
-% Function passed to each child process (Need to change name)
-foo() ->
-    receive
-        {MPid, Node} ->
-            MPid ! {self()},
-            foo2(Node);
-        _ ->
-            ok
-    end.
-
-% Function to set up variables in child process
-foo2(Node) ->
-    receive
-        {N, Init_flag} ->
-            Name = [Node],
-            Neighbours = N,
-            Parent = [],
-
-            case Init_flag of
-                true -> foo3(Name, Neighbours, self());
-                false -> foo4(Name, Neighbours, Parent)
-            end;
-        _ ->
-            ok
-    after 2000
-        -> ok
-    end,
-
-    receive
-        {T} -> 
-            io:format("["),
-            my_print(T),
-            io:format("]~n")
-    end.
-
-% Initiator function
-foo3(Name, [Neighbour|Nbs], Parent) ->
-    Neighbour ! {self(), Name},
-    foo5(Name, Nbs, Parent).
-
-foo5(Name, Neighbours, Parent) ->
-    receive
-        {Pid, Token} ->
-            T = [hd(Name)|Token],
-
-            case Neighbours of
-                [] -> Parent ! {lists:reverse(T)};
-                [N|Nbs] -> 
-                    N ! {self(), T},
-                    foo5(Name, Nbs, Parent)
-            end
-    end.
-    
-% Non-Initiator function
-foo4(Name, Neighbours, Parent) ->
-    receive
-        {Pid, Token} ->
-            case Parent of
-                [] ->
-                    P = Pid,
-                    Valid_neighbours = lists:delete(P, Neighbours);
-                P ->
-                    Valid_neighbours = Neighbours
-            end,
-
-            T = [hd(Name)|Token],
-
-            case Valid_neighbours of
-                [] -> P ! {self(), T};
-                [N|Nbs] -> 
-                    N ! {self(), T},
-                    foo4(Name, Nbs, P)
-            end
+convert_to_pid(Key, Dict) -> 
+    % Using find avoids exception if key is not found
+    case dict:find(Key,Dict) of
+        {ok, Value} -> Value;
+        error -> error
     end.
 
 % Listen function for main process - send a list of Pids to child process of which they can communicate with
+listen([], _) -> io:format("listen error, empty graph~n");
+listen(_, []) -> io:format("listen error, empty initiator~n");
 listen(Graph, Init) ->
     receive
         {Pid} ->
             Neighbours = find_neighbours(Graph, Pid),
             Pid ! {Neighbours, Pid == Init},
             listen(Graph, Init);
-        [X] ->
-            io:format("listen error")
-    after 2000
+        _ ->
+            io:format("listen error~n")
+    after 1000
         -> ok
     end.
 
@@ -172,3 +92,97 @@ find_neighbours([H|T], Pid) ->
         false -> find_neighbours(T, Pid)
     end.
 
+% Create processes from a list and create a list of tuples to associate nodes with pids 
+create_processes([]) -> [];
+create_processes([H|T]) ->
+    Pid = create_process(H),
+    case H of
+        [] -> [];
+        [Node|_] -> [{Node,Pid}] ++ create_processes(T)
+    end.
+% Create a process and return it's Pid - Helper function
+create_process([]) -> ok;
+create_process([Node|_]) ->
+    Pid = spawn(assign2, foo, []),
+    Pid ! {self(), Node},
+    Pid.
+
+% Function passed to each child process
+foo() ->
+    receive
+        {Main_Pid, Node} ->
+            Main_Pid ! {self()},
+            foo2(Node);
+        _ ->
+            ok
+    end.
+
+% Function to set up variables in child process, also listen for result from initiator
+foo2(Node) ->
+    receive
+        % {Neighbours, Initiator flag}
+        {Nbs, Init_flag} ->
+            case Init_flag of
+                true -> foo3(Node, Nbs, self());
+                false -> foo4(Node, Nbs, [])
+            end;
+        _ ->
+            ok
+    after 1000
+        -> ok
+    end,
+
+    % Listen for result from initiator and output
+    receive
+        {Token} -> 
+            io:format("["),
+            my_print(Token),
+            io:format("]~n")
+    after 1000
+        -> ok
+    end.
+
+% Initiator function - sends first message for Tarry's algorithm
+foo3(Name, [Neighbour|Nbs], Parent) ->
+    Neighbour ! {self(), [Name]},
+    foo5(Name, Nbs, Parent).
+% Initiator function - listens for messages
+foo5(Name, Neighbours, Main_pid) ->
+    receive
+        {_, Token} ->
+            T = [Name|Token],
+
+            case Neighbours of
+                % Reached end of algorithm, send back to main, reverse the token for right order
+                [] -> Main_pid ! {lists:reverse(T)};
+                % Send message to first neighbour and remove from the list of neighbours
+                [N|Nbs] -> 
+                    N ! {self(), T},
+                    foo5(Name, Nbs, Main_pid)
+            end
+    end.
+    
+% Non-Initiator function - listens for messages
+foo4(Name, Neighbours, Parent) ->
+    receive
+        {Pid, Token} ->
+            T = [Name|Token],
+
+            % if no parent, assign parent and remove from list of neighbours
+            case Parent of
+                [] ->
+                    P = Pid,
+                    Valid_neighbours = lists:delete(P, Neighbours);
+                P ->
+                    Valid_neighbours = Neighbours
+            end,
+
+            case Valid_neighbours of
+                % No neighbours so send to parent
+                [] -> P ! {self(), T};
+                % Send message to first neighbour and remove from the list of neighbours
+                [N|Nbs] -> 
+                    N ! {self(), T},
+                    foo4(Name, Nbs, P)
+            end
+    end.
