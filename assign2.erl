@@ -118,39 +118,76 @@ foo2(Node) ->
         {N, Init_flag} ->
             Name = [Node],
             Neighbours = N,
-            Visited = [],
             Parent = [],
 
             % Not finished yet need to pass function to initiator and function to rest
             case Init_flag of
-                true -> foo3(Name, Neighbours, Visited, Parent);
-                false -> foo4(Name, Neighbours, Visited, Parent)
+                true -> foo3(Name, Neighbours, self());
+                false -> foo4(Name, Neighbours, Parent)
             end;
         _ ->
             ok
-    after 2000
+    after 5000
         -> io:format("foo2 error")
+    end,
+
+    receive
+        {T} -> 
+            io:format("Final List: "),
+            my_print(T)
     end.
 
 % Not complete
 % Initiator function
-foo3(Name, [Neighbour|Nbs], Visited, Parent) ->
+foo3(Name, [Neighbour|Nbs], Parent) ->
     io:format("Initiator Name: ~p~n", Name),
-    Neighbour ! {self(), []}.
+    io:format("Token: ~p~n", [Name]),
+    Neighbour ! {self(), Name},
+    foo5(Name, Nbs, Parent).
+
+foo5(Name, Neighbours, Parent) ->
+    receive
+        {Pid, Token} ->
+            T = [hd(Name)|Token],
+            io:format("Token: ~p~n", [T]),
+            my_print(Neighbours),
+
+            case Neighbours of
+                [] -> Parent ! {lists:reverse(T)};
+                [N|Nbs] -> 
+                    N ! {self(), T},
+                    %io:format("N = ~p~n", [N]),
+                    foo5(Name, Nbs, Parent)
+            end
+    end.
     
 % Not complete
 % Non-Initiator function
-foo4(Name, Neighbours, Visited, Parent) ->
+foo4(Name, Neighbours, Parent) ->
     io:format("Name: ~p~n", Name),
     receive
         {Pid, Token} ->
             case Parent of
-                [] -> [Pid|Parent];
-                _ -> ok
+                [] ->
+                    P = Pid,
+                    %io:format("P =~p~n", [P]),
+                    Valid_neighbours = lists:delete(P, Neighbours);
+                    % my_print(Valid_neighbours);
+                P ->
+                    Valid_neighbours = Neighbours
             end,
-            T = [Name|Token],
-            io:format("Token: ~p~n", T)
-            %foo4(Name, Neighbours, [Visited], Parent)
+
+            T = [hd(Name)|Token],
+            io:format("Token: ~p~n", [T]),
+            my_print(Valid_neighbours),
+
+            case Valid_neighbours of
+                [] -> P ! {self(), T};
+                [N|Nbs] -> 
+                    N ! {self(), T},
+                    %io:format("N = ~p~n", [N]),
+                    foo4(Name, Nbs, P)
+            end
     end.
 
 % Listen function for main process - send a list of Pids to child process of which they can communicate with
@@ -177,3 +214,4 @@ find_neighbours([H|T], Pid) ->
         true -> tl(H);
         false -> find_neighbours(T, Pid)
     end.
+
