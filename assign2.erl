@@ -1,6 +1,6 @@
 % Things to do
 %   - Setup the token to be passed in the algorithm
-%   - Function to send and recieve tokens between nodes
+%   - Function to send and receive tokens between nodes
 %   - Function to check: A process never forwards the token through the same channel twice
 %   - Function to check: A process only forwards the token to its parent when there is no other option
 %   - Function for the Tarry's algorithm
@@ -41,7 +41,7 @@ main() ->
     my_print(Graph2),
 
     % Listen back for responses to check if nodes are created
-    listen(Graph2).
+    listen(Graph2, dict:fetch(hd(Init), Dictionary)).
 
 % Reads input from stdin
 get_all_lines(Accum) ->
@@ -115,26 +115,53 @@ foo() ->
 % Function to set up variables in child process
 foo2(Node) ->
     receive
-        {N} ->
+        {N, Init_flag} ->
             Name = [Node],
             Neighbours = N,
             Visited = [],
-            Parent = [];
+            Parent = [],
+
+            % Not finished yet need to pass function to initiator and function to rest
+            case Init_flag of
+                true -> foo3(Name, Neighbours, Visited, Parent);
+                false -> foo4(Name, Neighbours, Visited, Parent)
+            end;
         _ ->
             ok
     after 2000
         -> io:format("foo2 error")
     end.
 
+% Not complete
+% Initiator function
+foo3(Name, [Neighbour|Nbs], Visited, Parent) ->
+    io:format("Initiator Name: ~p~n", Name),
+    Neighbour ! {self(), []}.
+    
+% Not complete
+% Non-Initiator function
+foo4(Name, Neighbours, Visited, Parent) ->
+    io:format("Name: ~p~n", Name),
+    receive
+        {Pid, Token} ->
+            case Parent of
+                [] -> [Pid|Parent];
+                _ -> ok
+            end,
+            T = [Name|Token],
+            io:format("Token: ~p~n", T)
+            %foo4(Name, Neighbours, [Visited], Parent)
+    end.
+
 % Listen function for main process - send a list of Pids to child process of which they can communicate with
-listen(Graph) ->
+listen(Graph, Init) ->
     receive
         {Pid} ->
             %io:format("Received Key: ~c~n", Key),
             %my_print(Nodes),
             Neighbours = find_neighbours(Graph, Pid),
-            Pid ! {Neighbours},
-            listen(Graph);
+            Pid ! {Neighbours, Pid == Init},
+            listen(Graph, Init);
         [X] ->
             io:format("Got a bad message ~p~n", X),
             io:format("listen error")
@@ -150,5 +177,3 @@ find_neighbours([H|T], Pid) ->
         true -> tl(H);
         false -> find_neighbours(T, Pid)
     end.
- 
-
