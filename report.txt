@@ -1,7 +1,7 @@
 Team 8 - The Thundercatz
 	Jacky Hui 1443574
 	Felix Hiller 1446415
-	Olly Cockrem 1447025
+	Ollie Cockrem 1447025
 
 Compiling:
 	erlc assign2.erl
@@ -16,3 +16,6 @@ Text output of the sample input file:
 
 How far we got:
 	Assignment fully completed and correct.
+
+Extra:
+	Added basic input validation.

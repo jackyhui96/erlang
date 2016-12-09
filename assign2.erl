@@ -103,7 +103,7 @@ create_processes([H|T]) ->
 % Create a process and return it's Pid - Helper function
 create_process([]) -> ok;
 create_process([Node|_]) ->
-    Pid = spawn(assign2, start_node(), []),
+    Pid = spawn(assign2, start_node, []),
     Pid ! {self(), Node},
     Pid.
 
