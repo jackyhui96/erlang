@@ -103,28 +103,28 @@ create_processes([H|T]) ->
 % Create a process and return it's Pid - Helper function
 create_process([]) -> ok;
 create_process([Node|_]) ->
-    Pid = spawn(assign2, foo, []),
+    Pid = spawn(assign2, start_node(), []),
     Pid ! {self(), Node},
     Pid.
 
 % Function passed to each child process
-foo() ->
+start_node() ->
     receive
         {Main_Pid, Node} ->
             Main_Pid ! {self()},
-            foo2(Node);
+            setup_node(Node);
         _ ->
             ok
     end.
 
 % Function to set up variables in child process, also listen for result from initiator
-foo2(Node) ->
+setup_node(Node) ->
     receive
         % {Neighbours, Initiator flag}
         {Nbs, Init_flag} ->
             case Init_flag of
-                true -> foo3(Node, Nbs, self());
-                false -> foo4(Node, Nbs, [])
+                true -> init_start(Node, Nbs, self());
+                false -> noninit_listen(Node, Nbs, [])
             end;
         _ ->
             ok
@@ -143,11 +143,11 @@ foo2(Node) ->
     end.
 
 % Initiator function - sends first message for Tarry's algorithm
-foo3(Name, [Neighbour|Nbs], Parent) ->
+init_start(Name, [Neighbour|Nbs], Parent) ->
     Neighbour ! {self(), [Name]},
-    foo5(Name, Nbs, Parent).
+    init_listen(Name, Nbs, Parent).
 % Initiator function - listens for messages
-foo5(Name, Neighbours, Main_pid) ->
+init_listen(Name, Neighbours, Main_pid) ->
     receive
         {_, Token} ->
             T = [Name|Token],
@@ -158,12 +158,12 @@ foo5(Name, Neighbours, Main_pid) ->
                 % Send message to first neighbour and remove from the list of neighbours
                 [N|Nbs] -> 
                     N ! {self(), T},
-                    foo5(Name, Nbs, Main_pid)
+                    init_listen(Name, Nbs, Main_pid)
             end
     end.
     
 % Non-Initiator function - listens for messages
-foo4(Name, Neighbours, Parent) ->
+noninit_listen(Name, Neighbours, Parent) ->
     receive
         {Pid, Token} ->
             T = [Name|Token],
@@ -183,6 +183,6 @@ foo4(Name, Neighbours, Parent) ->
                 % Send message to first neighbour and remove from the list of neighbours
                 [N|Nbs] -> 
                     N ! {self(), T},
-                    foo4(Name, Nbs, P)
+                    noninit_listen(Name, Nbs, P)
             end
     end.
