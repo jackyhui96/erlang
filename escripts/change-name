@@ -1,0 +1,40 @@
+#!/usr/bin/env escript
+
+main([String]) ->
+    LCString = string:to_lower(String),
+    IgnoreChars = [
+        $ , 
+        $",
+        $£,
+        $%,
+        $^,
+        $&,
+        $*,
+        $(,
+        $),
+        $-,
+        $_,
+        $+,
+        $=,
+        ${,
+        $},
+        $[,
+        $],
+        $@,
+        $',
+        $~,
+        $,,
+        $.,
+        $<,
+        $>,
+        $;,
+        $:,
+        $#,
+        $?,
+        $/,
+        $\
+    ],
+    List = [ S ++ "-" || S <- string:tokens(LCString, IgnoreChars) ],
+    Result = lists:append(List),
+    io:format("~p~n", [string:sub_string(Result, 1, length(Result)-1)]).
+    
