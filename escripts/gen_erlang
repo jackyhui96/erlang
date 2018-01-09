@@ -22,7 +22,7 @@ blank_template(Filename) ->
     [
         "%%%-------------------------------------------------------------------\n",
         "%%% @author ", User, "\n",
-        "%%% @copyright (C) ", integer_to_list(Year), ", bet365\n",
+        "%%% @copyright (C) ", integer_to_list(Year), ", <COMPANY>\n",
         "%%% @doc\n",
         "%%%\n",
         "%%% @end\n",
@@ -39,7 +39,7 @@ blank_gen_server_template(Filename) ->
     [
         "%%%-------------------------------------------------------------------\n"
         "%%% @author ", User, "\n",
-        "%%% @copyright (C) ", integer_to_list(Year), ", bet365\n",
+        "%%% @copyright (C) ", integer_to_list(Year), ", <COMPANY>\n",
         "%%% @doc\n",
         "%%%\n",
         "%%% @end\n",
