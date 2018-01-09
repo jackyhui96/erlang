@@ -1,0 +1,99 @@
+% #!/usr/bin/env escript
+
+main([Filename]) ->
+    Contents = blank_template(Filename),
+    file:write_file(Filename ++ ".erl", Contents);
+
+main(["gen_server", Filename]) ->
+    Contents = blank_gen_server_template(Filename),
+    file:write_file(Filename ++ ".erl", Contents);
+
+main(_) ->
+    HelpString = [
+        "Usage for gen_erlang: \n",
+        "   - gen_erlang <filename>                for a blank module\n",
+        "   - gen_erlang <behaviour> <filename>    for a blank OTP Behaviour module"
+    ],
+    io:format("~s~n", [HelpString]).
+
+blank_template(Filename) ->
+    User = lists:droplast(os:cmd(whoami)),
+    {Day, MonthString, Year, Hour, Minute} = get_formatted_time(),
+    [
+        "%%%-------------------------------------------------------------------\n",
+        "%%% @author ", User, "\n",
+        "%%% @copyright (C) ", integer_to_list(Year), ", bet365\n",
+        "%%% @doc\n",
+        "%%%\n",
+        "%%% @end\n",
+        "%%% Created : ", io_lib:format("~2..0b", [Day]), ". ", MonthString, " ", integer_to_list(Year), " ", io_lib:format("~2..0b:~2..0b~n", [Hour, Minute]),
+        "%%%-------------------------------------------------------------------\n",
+        "-module(", Filename, ").\n",
+        "-author(\"", User,  "\").\n\n",
+        "%% API\n",
+        "-export([])."
+    ].
+blank_gen_server_template(Filename) ->
+    User = lists:droplast(os:cmd(whoami)),
+    {Day, MonthString, Year, Hour, Minute} = get_formatted_time(),
+    [
+        "%%%-------------------------------------------------------------------\n"
+        "%%% @author ", User, "\n",
+        "%%% @copyright (C) ", integer_to_list(Year), ", bet365\n",
+        "%%% @doc\n",
+        "%%%\n",
+        "%%% @end\n",
+        "%%% Created : ", io_lib:format("~2..0b", [Day]), ". ", MonthString, " ", integer_to_list(Year), " ", io_lib:format("~2..0b:~2..0b~n", [Hour, Minute]),
+        "%%%-------------------------------------------------------------------\n"
+        "-module(", Filename, ").\n",
+        "-author(\"", User,  "\").\n\n",
+        "-behaviour(gen_server).\n\n",
+        "%% API\n",
+        "-export([start_link/0]).\n\n",
+        "%% gen_server callbacks\n",
+        "-export([init/1, handle_call/3, handle_cast/2, handle_info/2,\n",
+        "        terminate/2, code_change/3]).\n\n",
+        "-record(state, {}).\n\n",
+        "%%%===================================================================\n",
+        "%%% API\n",
+        "%%%===================================================================\n\n",
+        "start_link() ->\n",
+        "    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).\n\n",
+        "%%%===================================================================\n",
+        "%%% gen_server callbacks\n",
+        "%%%===================================================================\n\n",
+        "init([]) ->\n",
+        "    {ok, #state{}}.\n\n",
+        "handle_call(_Request, _From, State) ->\n",
+        "    Reply = ok,\n",
+        "    {reply, Reply, State}.\n\n",
+        "handle_cast(_Msg, State) ->\n",
+        "    {noreply, State}.\n\n",
+        "handle_info(_Info, State) ->\n",
+        "    {noreply, State}.\n\n",
+        "terminate(_Reason, _State) ->\n",
+        "    ok.\n\n",
+        "code_change(_OldVsn, State, _Extra) ->\n",
+        "    {ok, State}.\n\n",
+        "%%%===================================================================\n",
+        "%%% Internal functions\n",
+        "%%%===================================================================\n"
+    ].
+
+get_formatted_time() ->
+    {{Year, Month, Day}, {Hour, Minute, _}} = calendar:now_to_local_time(erlang:timestamp()),
+    MonthString = case Month of
+        1 -> "Jan";
+        2 -> "Feb";
+        3 -> "Mar";
+        4 -> "Apr";
+        5 -> "May";
+        6 -> "Jun";
+        7 -> "Jul";
+        8 -> "Aug";
+        9 -> "Sep";
+        10 -> "Oct";
+        11 -> "Nov";
+        12 -> "Dec"
+    end,
+    {Day, MonthString, Year, Hour, Minute}.
